@@ -13,8 +13,12 @@ func parseArgs(args []string) {
 
 	// Create flags
 	input := parser.String("i", "input", &argparse.Options{
-		Required: false,
+		Required: true,
 		Help:     "Input link"})
+
+	randomUA := parser.Flag("", "random-ua", &argparse.Options{
+		Required: false,
+		Help:     "Randomize user agent on request"})
 
 	// Parse input
 	err := parser.Parse(args)
@@ -25,5 +29,7 @@ func parseArgs(args []string) {
 		os.Exit(0)
 	}
 
+	// Fill arguments structure
 	arguments.Input = *input
+	arguments.RandomUA = *randomUA
 }

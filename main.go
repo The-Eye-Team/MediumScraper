@@ -10,7 +10,8 @@ import (
 )
 
 var arguments = struct {
-	Input string
+	Input    string
+	RandomUA bool
 }{}
 
 // Article struct hold data scraped from an article
@@ -35,7 +36,9 @@ func scrapeArticle(articleLink string) (Article, error) {
 	c := colly.NewCollector()
 
 	// Randomize user agent on every request
-	extensions.RandomUserAgent(c)
+	if arguments.RandomUA == true {
+		extensions.RandomUserAgent(c)
+	}
 
 	// Scrape article's title and summary
 	c.OnHTML("div.elevateCover", func(e *colly.HTMLElement) {
