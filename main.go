@@ -33,7 +33,9 @@ func scrapeArticle(articleLink string) (Article, error) {
 	// Create an article structure
 	var article Article
 	// Create collector
-	c := colly.NewCollector()
+	c := colly.NewCollector(
+		colly.AllowedDomains("medium.com"),
+	)
 
 	// Randomize user agent on every request
 	if arguments.RandomUA == true {
