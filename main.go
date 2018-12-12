@@ -20,6 +20,9 @@ type Article struct {
 	Title   string
 	Summary string
 
+	// Body
+	Body string
+
 	// Author
 	Author Author
 }
@@ -57,6 +60,13 @@ func scrapeArticle(articleLink string) (Article, error) {
 		article.Author.Name = e.ChildText("a.postMetaInline--author")
 	})
 
+	// Scrape text
+	c.OnHTML("div.postArticle-content", func(e *colly.HTMLElement) {
+		e.ForEach("section.section--body", func(_ int, el *colly.HTMLElement) {
+			article.Body = e.ChildText("p.graf--p")
+		})
+	})
+
 	// Visit page and fill collector
 	c.Visit(articleLink)
 
@@ -76,6 +86,7 @@ func main() {
 	fmt.Println("Scraping: " + arguments.Input + "\n")
 	fmt.Println("Title:   " + article.Title)
 	fmt.Println("Summary: " + article.Summary + "\n")
-	fmt.Println("Author name: " + article.Author.Name)
+	fmt.Println("Author name: " + article.Author.Name + "\n")
+	fmt.Println("Body: " + article.Body)
 
 }
