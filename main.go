@@ -21,7 +21,7 @@ type Article struct {
 	Summary string
 
 	// Body
-	Body string
+	Body []string
 
 	// Author
 	Author Author
@@ -63,7 +63,8 @@ func scrapeArticle(articleLink string) (Article, error) {
 	// Scrape text
 	c.OnHTML("div.postArticle-content", func(e *colly.HTMLElement) {
 		e.ForEach("section.section--body", func(_ int, el *colly.HTMLElement) {
-			article.Body = e.ChildText("p.graf--p")
+			article.Body = append(article.Body, el.ChildText("p.graf--p"))
+			article.Body = append(article.Body, el.ChildText("li.graf--li"))
 		})
 	})
 
@@ -87,6 +88,9 @@ func main() {
 	fmt.Println("Title:   " + article.Title)
 	fmt.Println("Summary: " + article.Summary + "\n")
 	fmt.Println("Author name: " + article.Author.Name + "\n")
-	fmt.Println("Body: " + article.Body)
+	fmt.Println("Body: ")
+	for index := 0; index < len(article.Body); index++ {
+		fmt.Println(article.Body[index] + "\n")
+	}
 
 }
