@@ -63,8 +63,18 @@ func scrapeArticle(articleLink string) (Article, error) {
 	// Scrape text
 	c.OnHTML("div.postArticle-content", func(e *colly.HTMLElement) {
 		e.ForEach("section.section--body", func(_ int, el *colly.HTMLElement) {
-			article.Body = append(article.Body, el.ChildText("p.graf--p"))
-			article.Body = append(article.Body, el.ChildText("li.graf--li"))
+			el.ForEach("p.graf--p", func(_ int, em *colly.HTMLElement) {
+				article.Body = append(article.Body, em.DOM.Text()+"\n")
+				em.ForEach("li.graf--li", func(_ int, ej *colly.HTMLElement) {
+					article.Body = append(article.Body, "• "+ej.DOM.Text())
+				})
+			})
+			el.ForEach("li.graf--li", func(_ int, em *colly.HTMLElement) {
+				article.Body = append(article.Body, "• "+em.DOM.Text())
+				em.ForEach("p.graf--p", func(_ int, ej *colly.HTMLElement) {
+					article.Body = append(article.Body, "• "+ej.DOM.Text())
+				})
+			})
 		})
 	})
 
@@ -90,7 +100,7 @@ func main() {
 	fmt.Println("Author name: " + article.Author.Name + "\n")
 	fmt.Println("Body: ")
 	for index := 0; index < len(article.Body); index++ {
-		fmt.Println(article.Body[index] + "\n")
+		fmt.Println(article.Body[index])
 	}
 
 }
