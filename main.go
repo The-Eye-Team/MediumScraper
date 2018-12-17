@@ -63,17 +63,20 @@ func scrapeArticle(articleLink string) (Article, error) {
 	// Scrape text
 	c.OnHTML("div.postArticle-content", func(e *colly.HTMLElement) {
 		e.ForEach("section.section--body", func(_ int, el *colly.HTMLElement) {
-			el.ForEach("p.graf--p", func(_ int, em *colly.HTMLElement) {
-				article.Body = append(article.Body, em.DOM.Text()+"\n")
-				em.ForEach("li.graf--li", func(_ int, ej *colly.HTMLElement) {
-					article.Body = append(article.Body, "• "+ej.DOM.Text())
-				})
-			})
-			el.ForEach("li.graf--li", func(_ int, em *colly.HTMLElement) {
-				article.Body = append(article.Body, "• "+em.DOM.Text())
-				em.ForEach("p.graf--p", func(_ int, ej *colly.HTMLElement) {
-					article.Body = append(article.Body, "• "+ej.DOM.Text())
-				})
+			el.ForEach(".graf", func(_ int, em *colly.HTMLElement) {
+				if em.DOM.HasClass("graf--p") == true {
+					if len(article.Body) >= 2 {
+						if article.Body[len(article.Body)-1] == "\n" {
+							article.Body = append(article.Body, em.DOM.Text()+"\n")
+						} else {
+							article.Body = append(article.Body, "\n"+em.DOM.Text())
+						}
+					} else {
+						article.Body = append(article.Body, em.DOM.Text()+"\n")
+					}
+				} else if em.DOM.HasClass("graf--li") == true {
+					article.Body = append(article.Body, "- "+em.DOM.Text())
+				}
 			})
 		})
 	})
@@ -96,9 +99,9 @@ func main() {
 
 	fmt.Println("Scraping: " + arguments.Input + "\n")
 	fmt.Println("Title:   " + article.Title)
-	fmt.Println("Summary: " + article.Summary + "\n")
-	fmt.Println("Author name: " + article.Author.Name + "\n")
-	fmt.Println("Body: ")
+	fmt.Println("Summary: " + article.Summary)
+	fmt.Println("Author: " + article.Author.Name + "\n")
+
 	for index := 0; index < len(article.Body); index++ {
 		fmt.Println(article.Body[index])
 	}
