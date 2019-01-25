@@ -1,109 +1,100 @@
 package main
 
 import (
-	"fmt"
+	"crypto/tls"
+	"io"
+	"io/ioutil"
+	"net/http"
+	nurl "net/url"
 	"os"
+	"strings"
+	"time"
 
-	"github.com/gocolly/colly"
-	"github.com/gocolly/colly/extensions"
-	"github.com/labstack/gommon/color"
+	readability "github.com/RadhiFadlillah/go-readability"
+	"github.com/kennygrant/sanitize"
 )
 
-var arguments = struct {
-	Input    string
-	RandomUA bool
-}{}
+//var checkPre = color.Yellow("[") + color.Green("✓") + color.Yellow("]")
+//var crossPre = color.Yellow("[") + color.Red("✗") + color.Yellow("]")
 
-// Article struct hold data scraped from an article
-type Article struct {
-	// Basic informations
-	Title   string
-	Summary string
+var client = http.Client{}
 
-	// Body
-	Body []string
-
-	// Author
-	Author Author
+func init() {
+	// Disable HTTP/2: Empty TLSNextProto map
+	client.Transport = http.DefaultTransport
+	client.Transport.(*http.Transport).TLSNextProto =
+		make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
 }
 
-// Author struct hold data about an author
-type Author struct {
-	Name string
-}
+func downloadCover(url, path string, client *http.Client) error {
+	// Create the file
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
 
-func scrapeArticle(articleLink string) (Article, error) {
-	// Create an article structure
-	var article Article
-	// Create collector
-	c := colly.NewCollector(
-		colly.AllowedDomains("medium.com"),
-	)
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
-	// Randomize user agent on every request
-	if arguments.RandomUA == true {
-		extensions.RandomUserAgent(c)
+	// Check server response
+	if resp.StatusCode != http.StatusOK {
+		downloadCover(url, path, client)
 	}
 
-	// Scrape article's title and summary
-	c.OnHTML("div.elevateCover", func(e *colly.HTMLElement) {
-		// Scrape username
-		article.Title = e.ChildText("h1.elevate-h1")
+	// Writer the body to file
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
-		// Scrape summary
-		article.Summary = e.ChildText("p.elevate-summary")
-	})
+func scrapeArticle(url string) error {
+	// Create URL
+	parsedURL, _ := nurl.Parse(url)
 
-	// Scrape author informations
-	c.OnHTML("div.u-flexEnd", func(e *colly.HTMLElement) {
-		// Scrape author name
-		article.Author.Name = e.ChildText("a.postMetaInline--author")
-	})
+	// Fetch readable content
+	article, err := readability.FromURL(parsedURL, 5*time.Second)
+	if err != nil {
+		return err
+	}
 
-	// Scrape text
-	c.OnHTML("div.postArticle-content", func(e *colly.HTMLElement) {
-		e.ForEach("section.section--body", func(_ int, el *colly.HTMLElement) {
-			el.ForEach(".graf", func(_ int, em *colly.HTMLElement) {
-				if em.DOM.HasClass("graf--p") == true {
-					if len(article.Body) >= 2 {
-						if article.Body[len(article.Body)-1] == "\n" {
-							article.Body = append(article.Body, em.DOM.Text()+"\n")
-						} else {
-							article.Body = append(article.Body, "\n"+em.DOM.Text())
-						}
-					} else {
-						article.Body = append(article.Body, em.DOM.Text()+"\n")
-					}
-				} else if em.DOM.HasClass("graf--li") == true {
-					article.Body = append(article.Body, "- "+em.DOM.Text())
-				}
-			})
-		})
-	})
+	// Show results
+	title := strings.Split(article.Meta.Title, " –")
 
-	// Visit page and fill collector
-	c.Visit(articleLink)
+	text := []byte("Title: " + sanitize.Path(title[0]) + "\n")
+	text = append(text, "Image: "+article.Meta.Image+"\n"...)
+	text = append(text, "Author: "+article.Meta.Author+"\n"...)
+	text = append(text, "Excerpt: "+article.Meta.Excerpt+"\n"...)
+	text = append(text, "\nContent: \n\n"+article.Content+"\n"...)
 
-	return article, nil
+	author := strings.Replace(article.Meta.Author, " ", "_", -1)
+
+	// Create destination pth
+	os.MkdirAll(author+"/"+sanitize.Path(title[0])+"/", os.ModePerm)
+
+	// Write the article to file
+	err = ioutil.WriteFile(author+"/"+sanitize.Path(title[0])+"/"+sanitize.Path(title[0])+".txt", text, 0644)
+	if err != nil {
+		return err
+	}
+
+	// Download cover
+	err = downloadCover(article.Meta.Image, author+"/"+sanitize.Path(title[0])+"/"+sanitize.Path(title[0])+".jpg", &client)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func main() {
-	// Parse arguments and fill the arguments structure
-	parseArgs(os.Args)
-
-	// Scrape the article
-	article, err := scrapeArticle(arguments.Input)
+	err := scrapeArticle(os.Args[1])
 	if err != nil {
-		fmt.Println(color.Red("Error while scraping the article: ") + err.Error())
+		scrapeArticle(os.Args[1])
 	}
-
-	fmt.Println("Scraping: " + arguments.Input + "\n")
-	fmt.Println("Title:   " + article.Title)
-	fmt.Println("Summary: " + article.Summary)
-	fmt.Println("Author: " + article.Author.Name + "\n")
-
-	for index := 0; index < len(article.Body); index++ {
-		fmt.Println(article.Body[index])
-	}
-
 }
