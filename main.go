@@ -59,21 +59,21 @@ func scrapeArticle(url string) error {
 	parsedURL, _ := nurl.Parse(url)
 
 	// Fetch readable content
-	article, err := readability.FromURL(parsedURL, 5*time.Second)
+	article, err := readability.FromURL(parsedURL.String(), 5*time.Second)
 	if err != nil {
 		return err
 	}
 
 	// Show results
-	title := strings.Split(article.Meta.Title, " –")
+	title := strings.Split(article.Title, " –")
 
 	text := []byte("Title: " + sanitize.Path(title[0]) + "\n")
-	text = append(text, "Image: "+article.Meta.Image+"\n"...)
-	text = append(text, "Author: "+article.Meta.Author+"\n"...)
-	text = append(text, "Excerpt: "+article.Meta.Excerpt+"\n"...)
+	text = append(text, "Image: "+article.Image+"\n"...)
+	text = append(text, "Author: "+article.Byline+"\n"...)
+	text = append(text, "Excerpt: "+article.Excerpt+"\n"...)
 	text = append(text, "\nContent: \n\n"+article.Content+"\n"...)
 
-	author := strings.Replace(article.Meta.Author, " ", "_", -1)
+	author := strings.Replace(article.Byline, " ", "_", -1)
 
 	// Create destination pth
 	os.MkdirAll(author+"/"+sanitize.Path(title[0])+"/", os.ModePerm)
@@ -85,7 +85,7 @@ func scrapeArticle(url string) error {
 	}
 
 	// Download cover
-	err = downloadCover(article.Meta.Image, author+"/"+sanitize.Path(title[0])+"/"+sanitize.Path(title[0])+".jpg", &client)
+	err = downloadCover(article.Image, author+"/"+sanitize.Path(title[0])+"/"+sanitize.Path(title[0])+".jpg", &client)
 	if err != nil {
 		return err
 	}
